@@ -1,0 +1,4 @@
+flask
+speedtest-cli
+flask-cors
+gunicorn
