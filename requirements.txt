@@ -1,4 +1,3 @@
-flask
+Flask
+Flask-Cors
 speedtest-cli
-flask-cors
-gunicorn
