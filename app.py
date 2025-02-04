@@ -6,6 +6,7 @@ import re
 import speedtest
 from functools import wraps
 import time
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -24,7 +25,7 @@ ALLOWED_COMMANDS = {
     },
     'traceroute': {
         'base_cmd': 'traceroute',
-        'params': ['-I','-m','15'],  # Limit to 15 hops
+        'params': ['-I', '-m', '15'],  # Limit to 15 hops
         'timeout': 15
     },
     'netstat': {
@@ -85,19 +86,7 @@ def run_command(command_type, host=None):
     except Exception as e:
         return {"success": False, "error": [str(e)]}
 
-def require_api_key(f):
-    """Optional: Decorator for API key authentication"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        api_key = request.headers.get('X-API-Key')
-        if app.config.get('API_KEY_REQUIRED', False) and (
-            not api_key or api_key != app.config.get('API_KEY')):
-            return error_response("Invalid API key", 401)
-        return f(*args, **kwargs)
-    return decorated_function
-
 @app.route("/diagnose", methods=["GET"])
-@require_api_key
 def diagnose():
     host = request.args.get("host")
     if not host:
@@ -111,25 +100,24 @@ def diagnose():
     return jsonify(results)
 
 @app.route("/netstat", methods=["GET"])
-@require_api_key
 def netstat():
     result = run_command('netstat')
     return jsonify(result)
 
 @app.route("/speedtest", methods=["GET"])
-@require_api_key
 def speed_test():
     try:
         st = speedtest.Speedtest()
-        st.get_best_server()
+        # Retrieve best server once
+        best_server = st.get_best_server()
 
         # Create response dict
         result = {
             "success": True,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "server": {
-                "name": st.get_best_server()['sponsor'],
-                "location": f"{st.get_best_server()['name']}, {st.get_best_server()['country']}"
+                "name": best_server['sponsor'],
+                "location": f"{best_server['name']}, {best_server['country']}"
             }
         }
 
@@ -158,7 +146,9 @@ def not_found(e):
 def internal_error(e):
     return error_response("Internal server error", 500)
 
-if __name__ == "__main__": # Change this to your secret key
-
-    # Run the application
-    app.run(debug=True, host='127.0.0.1', port=5173)
+if __name__ == "__main__":
+    # For deployment, you might still want to load environment variables for other configurations
+    port = int(os.environ.get("PORT", 5173))
+    
+    # Run the application in production mode (debug off) and bind to all interfaces
+    app.run(debug=False, host='0.0.0.0', port=port)
